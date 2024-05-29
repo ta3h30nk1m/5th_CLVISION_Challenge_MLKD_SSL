@@ -23,9 +23,11 @@ from utils.competition_plugins import (
 from strategies.my_plugin import MyPlugin
 from strategies.my_strategy import MyStrategy
 from strategies.lwf_unlabelled import LwFUnlabelled
+from strategies.xder_extramodel import xder_extramodel
 from utils.generic import set_random_seed, FileOutputDuplicator, evaluate
 from utils.short_text_logger import ShortTextLogger
 
+from models.resnet18 import load_resnet18
 
 def main(args):
     # --- Generate Benchmark
@@ -36,10 +38,12 @@ def main(args):
 
     # --- Initialize Model
     set_random_seed()
-    model = torchvision.models.resnet18()
+    # model = torchvision.models.resnet18()
+    model = load_resnet18()
     # This classification head increases its size automatically in avalanche with the number of
     # annotated samples. If you modify the network structure adapt accordingly
-    model.fc = IncrementalClassifier(512, 2, masking=False)
+    # model.fc = IncrementalClassifier(512, 2, masking=False)
+    model.fc = torch.nn.Linear(512, 100)
 
     # --- Logger and metrics
     # Adjust logger to personal taste
@@ -60,7 +64,7 @@ def main(args):
     # DO NOT REMOVE OR CHANGE THESE PLUGINS:
     competition_plugins = [
         GPUMemoryChecker(max_allowed=8000),
-        TimeChecker(max_allowed=600)
+        TimeChecker(max_allowed=600) # 600
     ]
 
     # --- Your Plugins
@@ -70,14 +74,11 @@ def main(args):
     ]
 
     # --- Strategy
-    # Implement your own Strategy in MyStrategy and replace this example Approach
-    # Uncomment this line to test LwF baseline with unlabelled pool usage
-    # cl_strategy = LwFUnlabelled(model=model,
-    cl_strategy = MyStrategy(model=model,
-                             optimizer=torch.optim.Adam(model.parameters(), lr=0.001),
+    cl_strategy = xder_extramodel(model=model,
+                             optimizer=torch.optim.Adam(model.parameters(), lr=4e-4),
                              criterion=CrossEntropyLoss(),
-                             train_mb_size=64,
-                             train_epochs=20,
+                             train_mb_size=64, # 128
+                             train_epochs=75,
                              eval_mb_size=256,
                              device=device,
                              plugins=competition_plugins + plugins,
@@ -87,9 +88,10 @@ def main(args):
     for exp_idx, (train_exp, unl_ds) in enumerate(zip(benchmark.train_stream, benchmark.unlabelled_stream)):
         # train on current experience / task, head is automatically expanded by monitoring the
         cl_strategy.train(train_exp, unlabelled_ds=unl_ds, num_workers=args.num_workers)
-
+        
         # --- Make prediction on test-set samples
-        evaluate(benchmark.test_stream[0].dataset, cl_strategy.model, device, exp_idx, preds_file)
+        models = [cl_strategy.model, cl_strategy.sdp_model, ]
+        evaluate(benchmark.test_stream[0].dataset, models, device, exp_idx, preds_file, num_workers=args.num_workers)
 
     print(f"Predictions saved in {preds_file}")
 
@@ -99,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", type=int, default=0, help="Select zero-indexed cuda device. -1 to use CPU.")
     parser.add_argument("--config_file", type=str, default="scenario_1.pkl")
     parser.add_argument("--run_name", type=str, default="baseline")
-    parser.add_argument("--num_workers", type=int, default=0)
+    parser.add_argument("--num_workers", type=int, default=4)
 
     args = parser.parse_args()
     main(args)

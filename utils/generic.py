@@ -39,32 +39,57 @@ class FileOutputDuplicator(object):
         self.duplicate.flush()
 
 
-def predict_test_set(model, test_set, device):
+def predict_test_set(model, test_set, device, num_workers):
     """
     Predict on test-set samples.
     """
     print("Making prediction on test-set samples")
 
-    model.eval()
-    dataloader = DataLoader(test_set, batch_size=64, shuffle=False)
-    preds = []
-    with torch.no_grad():
-        for (x, _, _) in dataloader:
-            pred = model(x.to(device)).detach().cpu()
-            preds.append(pred)
+    if isinstance(model, tuple) or isinstance(model, list):
+        for m in model:
+            m.eval()
+        
+        # model.eval()
+        test_set = test_set.eval()
+        dataloader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=num_workers)
+        preds = []
+        with torch.no_grad():
+            for idx, (x, _, _) in enumerate((dataloader)):
+                pred = []
+                for m in model:
+                    pred.append(m(x.to(device)).detach().cpu())
+                pred = torch.stack(pred)
+                pred = torch.mean(pred, dim=0)
+                
+                preds.append(pred)
 
-    preds = torch.cat(preds, dim=0)
-    preds = torch.argmax(preds, dim=1).numpy()
+        preds = torch.cat(preds, dim=0)
+        preds = torch.argmax(preds, dim=1)#.numpy()
 
-    return preds
+        return preds.numpy()
 
+    else:
+        model.eval()
+        test_set = test_set.eval()
+        dataloader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=num_workers)
+        preds = []
+        with torch.no_grad():
+            for idx, (x, _, _) in enumerate((dataloader)):
+                pred = model(x.to(device)).detach().cpu()
+                preds.append(pred)
 
-def evaluate(test_set, model, device, exp_idx, preds_file):
+        preds = torch.cat(preds, dim=0)
+        preds = torch.argmax(preds, dim=1)#.numpy()
+
+        return preds.numpy()
+
+def evaluate(test_set, model, device, exp_idx, preds_file, num_workers):
     """
     Call prediction function on test-set samples and append to file.
     """
 
-    predictions = predict_test_set(model, test_set, device)
+    # predictions = predict_test_set(model, test_set, device)
+    predictions = predict_test_set(model, test_set, device, num_workers)
 
     predictions_dict = {}
 
