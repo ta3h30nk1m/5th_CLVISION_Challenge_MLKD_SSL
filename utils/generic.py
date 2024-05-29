@@ -53,8 +53,9 @@ def predict_test_set(model, test_set, device, num_workers):
         test_set = test_set.eval()
         dataloader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=num_workers)
         preds = []
+        actuals = []
         with torch.no_grad():
-            for idx, (x, _, _) in enumerate((dataloader)):
+            for idx, (x, y, _) in enumerate((dataloader)):
                 pred = []
                 for m in model:
                     pred.append(m(x.to(device)).detach().cpu())
@@ -62,34 +63,39 @@ def predict_test_set(model, test_set, device, num_workers):
                 pred = torch.mean(pred, dim=0)
                 
                 preds.append(pred)
+                actuals.append(y)
 
         preds = torch.cat(preds, dim=0)
+        actuals = torch.cat(actuals, dim=0)#.numpy()
         preds = torch.argmax(preds, dim=1)#.numpy()
 
-        return preds.numpy()
+        return preds.numpy(), preds, actuals
 
     else:
         model.eval()
         test_set = test_set.eval()
         dataloader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=num_workers)
         preds = []
+        actuals = []
         with torch.no_grad():
-            for idx, (x, _, _) in enumerate((dataloader)):
+            for idx, (x, y, _) in enumerate((dataloader)):
                 pred = model(x.to(device)).detach().cpu()
                 preds.append(pred)
+                actuals.append(y)
 
         preds = torch.cat(preds, dim=0)
+        actuals = torch.cat(actuals, dim=0)#.numpy()
         preds = torch.argmax(preds, dim=1)#.numpy()
 
-        return preds.numpy()
+        return preds.numpy(), preds, actuals
+
 
 def evaluate(test_set, model, device, exp_idx, preds_file, num_workers):
     """
     Call prediction function on test-set samples and append to file.
     """
 
-    # predictions = predict_test_set(model, test_set, device)
-    predictions = predict_test_set(model, test_set, device, num_workers)
+    predictions, preds, gts = predict_test_set(model, test_set, device, num_workers)
 
     predictions_dict = {}
 
@@ -101,3 +107,5 @@ def evaluate(test_set, model, device, exp_idx, preds_file, num_workers):
 
     with open(preds_file, "wb") as f:
         pickle.dump(predictions_dict, f)
+    
+    return preds, gts

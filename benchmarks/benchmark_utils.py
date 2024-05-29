@@ -9,32 +9,9 @@ from torch.utils.data import Dataset
 
 import numpy as np
 
-class FileListDataset(Dataset):
-    def __init__(self, filelist: List[str], targets: List[int]):
-        self.filelist = filelist
-        self.targets = targets
-        assert len(filelist) == len(targets)
-
-    def __len__(self):
-        return len(self.targets)
-
-    def __getitem__(self, item):
-        img = Image.open(self.filelist[item])
-        target = self.targets[item]
-        return img, target
-
 # class FileListDataset(Dataset):
-#     def __init__(self, filelist: List[str], targets: List[int], preprocess=False):
+#     def __init__(self, filelist: List[str], targets: List[int]):
 #         self.filelist = filelist
-#         self.imgs = []
-#         self.preprocess = preprocess
-#         if preprocess:
-#             imgs = []
-#             for file in self.filelist:
-#                 img = Image.open(file).convert("RGB")
-#                 imgs.append(img)
-#             self.imgs = imgs
-            
 #         self.targets = targets
 #         assert len(filelist) == len(targets)
 
@@ -42,12 +19,35 @@ class FileListDataset(Dataset):
 #         return len(self.targets)
 
 #     def __getitem__(self, item):
-#         if self.preprocess:
-#             img = self.imgs[item]
-#         else:
-#             img = Image.open(self.filelist[item]).convert("RGB")
+#         img = Image.open(self.filelist[item])
 #         target = self.targets[item]
 #         return img, target
+
+class FileListDataset(Dataset):
+    def __init__(self, filelist: List[str], targets: List[int], preprocess=False):
+        self.filelist = filelist
+        self.imgs = []
+        self.preprocess = preprocess
+        if preprocess:
+            imgs = []
+            for file in self.filelist:
+                img = Image.open(file).convert("RGB")
+                imgs.append(img)
+            self.imgs = imgs
+            
+        self.targets = targets
+        assert len(filelist) == len(targets)
+
+    def __len__(self):
+        return len(self.targets)
+
+    def __getitem__(self, item):
+        if self.preprocess:
+            img = self.imgs[item]
+        else:
+            img = Image.open(self.filelist[item]).convert("RGB")
+        target = self.targets[item]
+        return img, target
 
 
 class UnlabelledDataset(Dataset):

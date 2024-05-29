@@ -78,7 +78,7 @@ def main(args):
                              optimizer=torch.optim.Adam(model.parameters(), lr=4e-4),
                              criterion=CrossEntropyLoss(),
                              train_mb_size=64, # 128
-                             train_epochs=75,
+                             train_epochs=1,
                              eval_mb_size=256,
                              device=device,
                              plugins=competition_plugins + plugins,
@@ -91,7 +91,8 @@ def main(args):
         
         # --- Make prediction on test-set samples
         # preds, gts = evaluate(benchmark.test_stream[0].dataset, cl_strategy.model, device, exp_idx, preds_file, num_workers=args.num_workers)
-        models = [cl_strategy.model, cl_strategy.sdp_model, ]
+        # models = [cl_strategy.model, cl_strategy.sdp_model, ]
+        models = cl_strategy.model
         # for prevmodel in cl_strategy.prev_model_list:
         #     models.append(prevmodel)
         
