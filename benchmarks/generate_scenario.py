@@ -22,28 +22,57 @@ def _get_test_transform():
                     Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)), ])
 
 
+DATA_ROOT = "data"
+
 def generate_benchmark(benchmark_config: str):
     with open(os.path.join("scenario_configs", benchmark_config), "rb") as f:
         config = pickle.load(f)
 
     # set random seed for all sampling
     set_random_seed()
-    with open(os.path.join("data", "clvision2024-data", "clvision2024-splits", "train.txt"), "r") as f:
+    with open(os.path.join(DATA_ROOT, "clvision2024-data", "clvision2024-splits", "train.txt"), "r") as f:
         train_lines = f.readlines()
 
         file_list = []
         target_list = []
         for line in train_lines:
             line_parts = line.strip().split(" ")
-            file_list.append(os.path.join("data", "clvision2024-data", "clvision2024-imgs", line_parts[0].strip()))
+            file_list.append(os.path.join(DATA_ROOT, "clvision2024-data", "clvision2024-imgs", line_parts[0].strip()))
             target_list.append(int(line_parts[1].strip()))
 
-    with open(os.path.join("data", "clvision2024-data", "clvision2024-splits", "test.txt"), "r") as f:
+    with open(os.path.join(DATA_ROOT, "clvision2024-data", "clvision2024-splits", "test_label.txt"), "r") as f:
         test_lines = f.readlines()
-        test_lines = [os.path.join("data", "clvision2024-data", "clvision2024-imgs", t.strip()) for t in test_lines]
+        test_file_list = []
+        test_target_list = []
+        for line in test_lines:
+            line_parts = line.strip().split(" ")
+            test_file_list.append(os.path.join(DATA_ROOT, "clvision2024-data", "clvision2024-imgs", line_parts[0].strip()))
+            test_target_list.append(int(line_parts[1].strip()))
 
+    # with open(os.path.join("data", "clvision2024-data", "clvision2024-splits", "test.txt"), "r") as f:
+    #     test_lines = f.readlines()
+    #     test_lines = [os.path.join("data", "clvision2024-data", "clvision2024-imgs", t.strip()) for t in test_lines]
+
+    # validation set loading
+    if 'sc1' in benchmark_config:
+        val_file = 'sc1_val.txt'
+    elif 'sc2' in benchmark_config:
+        val_file = 'sc2_val.txt'
+    else:
+        val_file = 'sc3_val.txt'
+    with open(os.path.join(DATA_ROOT, "clvision2024-data", "clvision2024-splits", val_file), "r") as f:
+        val_lines = f.readlines()
+        val_file_list = []
+        val_target_list = []
+        for line in val_lines:
+            line_parts = line.strip().split(" ")
+            val_file_list.append(os.path.join(DATA_ROOT, "clvision2024-data", "clvision2024-imgs", line_parts[0].strip()))
+            val_target_list.append(int(line_parts[1].strip()))
+    
     train_ds = FileListDataset(file_list, target_list)
-    test_ds = FileListDataset(test_lines, [0] * len(test_lines))
+    test_ds = FileListDataset(test_file_list, test_target_list, preprocess=True)
+    val_ds = FileListDataset(val_file_list, val_target_list, preprocess=True)
+    
     train_datasets = []
     unlabeled_datasets = []
 
@@ -57,7 +86,7 @@ def generate_benchmark(benchmark_config: str):
         unlabeled_datasets.append(unlabelled_ds)
 
     scenario = dataset_benchmark(train_datasets=train_datasets,
-                                 test_datasets=[test_ds],
+                                 test_datasets=[test_ds,val_ds],
                                  train_transform=get_train_transform(),
                                  eval_transform=_get_test_transform())
 

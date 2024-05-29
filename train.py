@@ -90,8 +90,41 @@ def main(args):
         cl_strategy.train(train_exp, unlabelled_ds=unl_ds, num_workers=args.num_workers)
         
         # --- Make prediction on test-set samples
+        # preds, gts = evaluate(benchmark.test_stream[0].dataset, cl_strategy.model, device, exp_idx, preds_file, num_workers=args.num_workers)
         models = [cl_strategy.model, cl_strategy.sdp_model, ]
-        evaluate(benchmark.test_stream[0].dataset, models, device, exp_idx, preds_file, num_workers=args.num_workers)
+        # for prevmodel in cl_strategy.prev_model_list:
+        #     models.append(prevmodel)
+        
+        preds, gts = evaluate(benchmark.test_stream[0].dataset, models, device, exp_idx, preds_file, num_workers=args.num_workers)
+        # must comment these evaluation lines to create submission files
+        # get valid data (except distractor classes)
+        # start_t = time.time()
+        distractors = list(range(100, 130))
+        valid_idx = torch.tensor([int(gt) not in distractors for gt in gts])
+        valid_gts = gts[valid_idx]
+        valid_preds = preds[valid_idx]
+        
+        
+        cur_cls = train_exp.classes_in_this_experience
+        seen_cls.extend(cur_cls)
+        seen_cls = list(set(seen_cls))
+
+        # final accuracy
+        final_acc = torch.sum(valid_gts == valid_preds) / len(valid_gts)
+        
+        # accuracy of current task
+        cur_idx = torch.tensor([int(gt) in cur_cls for gt in valid_gts])
+        cur_preds = valid_preds[cur_idx]
+        cur_gts = valid_gts[cur_idx]
+        cur_acc = torch.sum(cur_gts == cur_preds) / len(cur_gts)
+        
+        # accuracy of all the seen classes
+        seen_idx = torch.tensor([int(gt) in seen_cls for gt in valid_gts])
+        seen_preds = valid_preds[seen_idx]
+        seen_gts = valid_gts[seen_idx]
+        seen_acc = torch.sum(seen_gts == seen_preds) / len(seen_gts)
+
+        print(f"TEST - EXP {exp_idx}: Accuracy on current exp: {(100*cur_acc):.3f}% | Accuracy on all seen cls: {(100*seen_acc):.3f}% | Final Accuracy: {(100*final_acc):.3f}%")
 
     print(f"Predictions saved in {preds_file}")
 
