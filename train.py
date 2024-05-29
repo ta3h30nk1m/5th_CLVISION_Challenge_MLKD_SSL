@@ -85,6 +85,7 @@ def main(args):
                              evaluator=eval_plugin)
 
     # --- Sequence of incremental training tasks/experiences
+    seen_cls = []
     for exp_idx, (train_exp, unl_ds) in enumerate(zip(benchmark.train_stream, benchmark.unlabelled_stream)):
         # train on current experience / task, head is automatically expanded by monitoring the
         cl_strategy.train(train_exp, unlabelled_ds=unl_ds, num_workers=args.num_workers)
